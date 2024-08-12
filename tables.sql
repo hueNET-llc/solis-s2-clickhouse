@@ -45,8 +45,8 @@ CREATE TABLE solis_s2_buffer (
         amps Float32, -- MPPT current
         watts UInt32 -- MPPT power
     )),
-    mppt_calculated_watts UInt32, -- DC power calculated by summing MPPT power
-    mppt_actual_watts UInt32, -- DC power measured by inverter
+    dc_calculated_watts UInt32, -- DC power calculated by summing MPPT power
+    dc_actual_watts UInt32, -- DC power measured by inverter
     dc_busbar_voltage Float32, -- DC busbar voltage
     dc_half_busbar_voltage Float32, -- DC half busbar voltage
     ground_voltage Float32, -- Ground voltage
@@ -54,13 +54,13 @@ CREATE TABLE solis_s2_buffer (
     ac_apparent_va UInt32, -- AC apparent power
     ac_calculated_watts UInt32, -- AC calculated power
     ac_actual_watts UInt32, -- AC actual power
-    ac_phase Array(Nested(
+    ac_phases Array(Nested(
         id LowCardinality(String), -- Phase ID (A, B, C)
         voltage Float32, -- Phase voltage
         amps Float32, -- Phase current
         watts UInt32 -- Phase power
     )),
-    ac_frequency Float32, -- AC frequency
+    ac_frequency_hz Float32, -- AC frequency
     daily_yield_kwh Float32, -- Daily yield in kWh
     monthly_yield_kwh UInt32, -- Monthly yield in kWh
     annual_yield_kwh UInt64, -- Annual yield in kWh
