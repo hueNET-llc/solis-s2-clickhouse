@@ -195,7 +195,7 @@ class SolisS2:
                         """,
                         data
                     )
-                    log.debug(f'ClickHouse insert failed for timestamp {data[-1]}')
+                    log.debug(f'ClickHouse insert success for timestamp {data[-1]}')
                     # Insert succeeded, break the loop and move on
                     break
                 except Exception as e:
@@ -219,25 +219,35 @@ class SolisS2:
                 message = umodbus_tcp.read_input_registers(slave_id=inverter['mb_slave_id'], starting_address=2999, quantity=50)
                 # Send the message and receive the response
                 log.debug(f'Fetching registers 3000-3049 from "{inverter["name"]}" ({inverter["ip"]})')
-                response = await self.loop.run_in_executor(None, lambda: umodbus_tcp.send_message(message, sock))
+                try:
+                    async with asyncio.timeout(inverter['timeout']):
+                        response = await self.loop.run_in_executor(None, lambda: umodbus_tcp.send_message(message, sock))
 
-                for register_id in range(50):
-                    registers[3000 + register_id] = response[register_id]
+                        for register_id in range(50):
+                            registers[3000 + register_id] = response[register_id]
 
-                # Fetch registers 3050-3089
-                # The send address must be offset from the actual register ID by -1
-                message = umodbus_tcp.read_input_registers(slave_id=inverter['mb_slave_id'], starting_address=3049, quantity=40)
-                # Send the message and receive the response
-                log.debug(f'Fetching registers 3050-3089 from "{inverter["name"]}" ({inverter["ip"]})')
-                response = await self.loop.run_in_executor(None, lambda: umodbus_tcp.send_message(message, sock))
+                        # Fetch registers 3050-3089
+                        # The send address must be offset from the actual register ID by -1
+                        message = umodbus_tcp.read_input_registers(slave_id=inverter['mb_slave_id'], starting_address=3049, quantity=40)
+                        # Send the message and receive the response
+                        log.debug(f'Fetching registers 3050-3089 from "{inverter["name"]}" ({inverter["ip"]})')
+                        response = await self.loop.run_in_executor(None, lambda: umodbus_tcp.send_message(message, sock))
 
-                for register_id in range(40):
-                    registers[3050 + register_id] = response[register_id]
+                        for register_id in range(40):
+                            registers[3050 + register_id] = response[register_id]
 
-                log.debug(f'Got register data from "{inverter["name"]}" ({inverter["ip"]}): {registers}')
-
-                # Close the socket
-                await self.loop.run_in_executor(None, sock.close)
+                        log.debug(f'Got register data from "{inverter["name"]}" ({inverter["ip"]}): {registers}')
+                except asyncio.TimeoutError as e:
+                    try:
+                        # Try to close the socket
+                        await self.loop.run_in_executor(None, sock.close)
+                    except Exception:
+                        pass
+                    # Pass up the timeout
+                    raise e
+                else:
+                    # Close the socket
+                    await self.loop.run_in_executor(None, sock.close)
             except Exception as e:
                 log.error(f'Failed to fetch "{inverter["name"]}" ({inverter["ip"]}): {e}')
                 # Retry after the configured delay
