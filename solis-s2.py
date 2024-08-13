@@ -214,30 +214,30 @@ class SolisS2:
                 log.debug(f'Opening socket to "{inverter["name"]}" ({inverter["ip"]})')
                 await self.loop.run_in_executor(None, sock.connect, (inverter['ip'], inverter['port']))
 
-                # Fetch registers 3000-3049
+                # Fetch registers 3000-3043
                 # The send address must be offset from the actual register ID by -1
-                message = umodbus_tcp.read_input_registers(slave_id=inverter['mb_slave_id'], starting_address=2999, quantity=50)
+                message = umodbus_tcp.read_input_registers(slave_id=inverter['mb_slave_id'], starting_address=2999, quantity=44)
                 # Send the message and receive the response
                 log.debug(f'Fetching registers 3000-3049 from "{inverter["name"]}" ({inverter["ip"]})')
                 try:
                     async with asyncio.timeout(inverter['timeout']):
                         response = await self.loop.run_in_executor(None, lambda: umodbus_tcp.send_message(message, sock))
 
-                        for register_id in range(50):
+                        for register_id in range(44):
                             registers[3000 + register_id] = response[register_id]
 
-                        # Fetch registers 3050-3089
+                        # Fetch registers 3050-3059
                         # The send address must be offset from the actual register ID by -1
-                        message = umodbus_tcp.read_input_registers(slave_id=inverter['mb_slave_id'], starting_address=3049, quantity=40)
+                        message = umodbus_tcp.read_input_registers(slave_id=inverter['mb_slave_id'], starting_address=3049, quantity=10)
                         # Send the message and receive the response
-                        log.debug(f'Fetching registers 3050-3089 from "{inverter["name"]}" ({inverter["ip"]})')
+                        log.debug(f'Fetching registers 3050-3059 from "{inverter["name"]}" ({inverter["ip"]})')
                         response = await self.loop.run_in_executor(None, lambda: umodbus_tcp.send_message(message, sock))
 
-                        for register_id in range(40):
+                        for register_id in range(10):
                             registers[3050 + register_id] = response[register_id]
 
                         log.debug(f'Got register data from "{inverter["name"]}" ({inverter["ip"]}): {registers}')
-                except asyncio.TimeoutError as e:
+                except Exception as e:
                     try:
                         # Try to close the socket
                         await self.loop.run_in_executor(None, sock.close)
