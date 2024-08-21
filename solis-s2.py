@@ -207,9 +207,10 @@ class SolisS2:
         log.info(f'Starting fetch for "{inverter["name"]}" ({inverter["ip"]})')
         while True:
             # {3000: 178, 3001: 24, 3002: 53, 3003: 0, 3004: 3, 3005: 0, 3006: 20, 3007: 0, 3008: 27, 3009: 0, 3010: 49087, 3011: 0, 3012: 301, 3013: 0, 3014: 1281, 3015: 491, 3016: 91, 3017: 0, 3018: 6703, 3019: 0, 3020: 10444, 3021: 0, 3022: 932, 3023: 1, 3024: 940, 3025: 1, 3026: 881, 3027: 1, 3028: 7, 3029: 1, 3030: 0, 3031: 1820, 3032: 3636, 3033: 0, 3034: 0, 3035: 0, 3036: 2422, 3037: 0, 3038: 0, 3039: 22, 3040: 0, 3041: 7, 3042: 291, 3043: 5999, 3044: 3, 3045: 0, 3046: 0, 3047: 0, 3048: 0, 3049: 0}
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(inverter['timeout'])
             registers = {}
             try:
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 # Connect to the socket in the executor
                 log.debug(f'Opening socket to "{inverter["name"]}" ({inverter["ip"]})')
                 await self.loop.run_in_executor(None, sock.connect, (inverter['ip'], inverter['port']))
@@ -237,22 +238,20 @@ class SolisS2:
                             registers[3050 + register_id] = response[register_id]
 
                         log.debug(f'Got register data from "{inverter["name"]}" ({inverter["ip"]}): {registers}')
-                except Exception as e:
-                    try:
-                        # Try to close the socket
-                        await self.loop.run_in_executor(None, sock.close)
-                    except Exception:
-                        pass
-                    # Pass up the timeout
-                    raise e
-                else:
-                    # Close the socket
-                    await self.loop.run_in_executor(None, sock.close)
+                except asyncio.TimeoutError:
+                    raise asyncio.TimeoutError("Timed out waiting for response")
             except Exception as e:
-                log.error(f'Failed to fetch "{inverter["name"]}" ({inverter["ip"]}): {e}')
+                log.error(f'Failed to fetch "{inverter["name"]}" ({inverter["ip"]}): {type(e).__name__}: {e}')
                 # Retry after the configured delay
                 await asyncio.sleep(inverter['interval'])
                 continue
+            finally:
+                 # Try to close the socket
+                try:
+                    await self.loop.run_in_executor(None, sock.close)
+                    log.debug(f'Closed socket to "{inverter["name"]}" ({inverter["ip"]})')
+                except Exception as e:
+                    log.error(f'Failed to close socket to "{inverter["name"]}" ({inverter["ip"]}): {type(e).__name__}: {e}')
 
             try:
                 # Parse MPPT inputs
